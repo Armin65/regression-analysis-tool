@@ -1,34 +1,33 @@
 from flask import Flask, request, jsonify
+from sklearn.linear_model import LinearRegression
 import pandas as pd
 import numpy as np
 
 app = Flask(__name__)
 
-# Load data
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'})
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'})
+    if not file:
+        return jsonify({"error": "No file uploaded."}), 400
     data = pd.read_csv(file)
-    return jsonify({'message': 'File uploaded successfully', 'data_head': data.head().to_dict()})
+    return jsonify({"message": "File uploaded successfully", "data": data.to_dict()}), 200
 
-# Analyze data
-@app.route('/analyze', methods=['POST'])
-def analyze_data():
-    data = request.get_json()
-    X = data['X']  # Assuming that 'X' is provided in the request
-    y = data['y']  # Assuming that 'y' is provided in the request
-    coefficients = np.polyfit(X, y, 1)  # Simple linear regression
-    return jsonify({'coefficients': coefficients.tolist()})
+@app.route('/train', methods=['POST'])
+def train_model():
+    json_data = request.get_json()
+    X = np.array(json_data['X']).reshape(-1, 1)
+    y = np.array(json_data['y'])
+    model = LinearRegression()
+    model.fit(X, y)
+    return jsonify({"message": "Model trained successfully", "coefficients": model.coef_.tolist(), "intercept": model.intercept_.tolist()}), 200
 
-# Endpoint for visualizing results
-@app.route('/visualize', methods=['GET'])
-def visualize_results():
-    # Visualization logic here (e.g., using matplotlib or seaborn)
-    return jsonify({'message': 'Visualization not implemented'})
+@app.route('/predict', methods=['POST'])
+def predict():
+    json_data = request.get_json()
+    X_new = np.array(json_data['X']).reshape(-1, 1)
+    predictions = model.predict(X_new)
+    return jsonify({"predictions": predictions.tolist()}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
